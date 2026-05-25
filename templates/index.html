@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Snip — URL Shortener</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0d0d;
+      --surface: #161616;
+      --border:  #2a2a2a;
+      --accent:  #c8f135;
+      --text:    #e8e8e8;
+      --muted:   #666;
+      --error:   #ff5f5f;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    header h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 800;
+      letter-spacing: -2px;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+      letter-spacing: 0.05em;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 540px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    input[type="url"] {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      padding: 0.75rem 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="url"]:focus { border-color: var(--accent); }
+
+    button {
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      color: #0d0d0d;
+      cursor: pointer;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.75rem 1.25rem;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Result */
+    .result {
+      margin-top: 1.5rem;
+      display: none;
+    }
+
+    .result.visible { display: block; }
+
+    .result-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .result-box {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+    }
+
+    .result-url {
+      flex: 1;
+      font-size: 0.9rem;
+      color: var(--accent);
+      word-break: break-all;
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.75rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+    }
+
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+
+    .error-msg {
+      margin-top: 1rem;
+      color: var(--error);
+      font-size: 0.8rem;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.5rem 0;
+    }
+
+    .history { display: none; }
+    .history.visible { display: block; }
+
+    .history-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.78rem;
+      gap: 1rem;
+    }
+
+    .history-item:last-child { border-bottom: none; }
+
+    .history-original {
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 60%;
+    }
+
+    .history-short a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .history-short a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>snip.</h1>
+    <p>paste long. get short.</p>
+  </header>
+
+  <div class="card">
+    <div class="input-row">
+      <input type="url" id="urlInput" placeholder="https://example.com/very/long/url" />
+      <button id="shortenBtn" onclick="shortenUrl()">Shorten</button>
+    </div>
+
+    <p class="error-msg" id="errorMsg"></p>
+
+    <div class="result" id="result">
+      <p class="result-label">Your short link</p>
+      <div class="result-box">
+        <span class="result-url" id="resultUrl"></span>
+        <button class="copy-btn" onclick="copyUrl()">Copy</button>
+      </div>
+    </div>
+
+    <div class="history" id="history">
+      <hr class="divider"/>
+      <p class="history-label">Recent</p>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <script>
+    const history = [];
+
+    async function shortenUrl() {
+      const input = document.getElementById("urlInput");
+      const btn = document.getElementById("shortenBtn");
+      const errorMsg = document.getElementById("errorMsg");
+      const url = input.value.trim();
+
+      errorMsg.classList.remove("visible");
+      document.getElementById("result").classList.remove("visible");
+
+      if (!url) return;
+
+      btn.disabled = true;
+      btn.textContent = "...";
+
+      try {
+        const res = await fetch("/shorten", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorMsg.textContent = data.error || "Something went wrong.";
+          errorMsg.classList.add("visible");
+        } else {
+          document.getElementById("resultUrl").textContent = data.short_url;
+          document.getElementById("result").classList.add("visible");
+          addHistory(url, data.short_url);
+          input.value = "";
+        }
+      } catch (e) {
+        errorMsg.textContent = "Network error. Is the server running?";
+        errorMsg.classList.add("visible");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Shorten";
+      }
+    }
+
+    function addHistory(original, short) {
+      history.unshift({ original, short });
+      const list = document.getElementById("historyList");
+      list.innerHTML = history.slice(0, 5).map(item => `
+        <div class="history-item">
+          <span class="history-original" title="${item.original}">${item.original}</span>
+          <span class="history-short"><a href="${item.short}" target="_blank">${item.short}</a></span>
+        </div>
+      `).join("");
+      document.getElementById("history").classList.add("visible");
+    }
+
+    function copyUrl() {
+      const url = document.getElementById("resultUrl").textContent;
+      navigator.clipboard.writeText(url).then(() => {
+        const btn = document.querySelector(".copy-btn");
+        btn.textContent = "Copied!";
+        setTimeout(() => btn.textContent = "Copy", 1500);
+      });
+    }
+
+    document.getElementById("urlInput").addEventListener("keydown", e => {
+      if (e.key === "Enter") shortenUrl();
+    });
+  </script>
+</body>
+</html>
